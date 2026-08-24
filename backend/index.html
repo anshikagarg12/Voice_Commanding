@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Shopping Assistant | Smart AI Grocery Manager</title>
+  <meta name="description" content="AI-powered Voice Shopping Assistant with intelligent Gemini natural language understanding." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            outfit: ['Outfit', 'sans-serif'],
+            sans: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              200: '#c7d2fe',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'ripple': 'ripple 1.6s cubic-bezier(0, 0.2, 0.8, 1) infinite',
+            'bounce-subtle': 'bounceSubtle 1.8s ease-in-out infinite',
+          },
+          keyframes: {
+            ripple: {
+              '0%': { transform: 'scale(0.95)', opacity: '0.8' },
+              '100%': { transform: 'scale(1.8)', opacity: '0' },
+            },
+            bounceSubtle: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-4px)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    h1, h2, h3, .font-heading {
+      font-family: 'Outfit', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+    }
+    .wave-bar {
+      transition: height 0.15s ease;
+    }
+    .strikethrough {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100 flex flex-col items-center p-3 sm:p-6 selection:bg-indigo-500 selection:text-white">
+
+  <!-- Background Decorative Glows -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-1/2 -right-40 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl"></div>
+    <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl"></div>
+  </div>
+
+  <main class="w-full max-w-xl relative z-10 flex flex-col gap-5 my-auto pb-12">
+    
+    <!-- Top Header -->
+    <header class="flex items-center justify-between pt-2 pb-1">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">
+            Voice Cart AI
+          </h1>
+          <p class="text-xs text-indigo-200/70 font-medium">Smart NLU Shopping Assistant</p>
+        </div>
+      </div>
+
+      <!-- Controls (Wake Word Toggle, Language Select, TTS Toggle & Backend Indicator) -->
+      <div class="flex items-center gap-2 flex-wrap justify-end">
+        <button id="wakeWordBtn" onclick="toggleWakeWordMode()" title="Toggle Hands-Free Wake-Word ('Hello Smart Cart')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all">
+          <span id="wakeWordPulse" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="wakeWordStatusText">Say "Hello Smart-Cart"</span>
+        </button>
+        <select id="langSelect" onchange="changeLanguage()" title="Select Voice Recognition Language" class="bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-200 text-xs rounded-xl px-2 py-2 focus:outline-none focus:border-indigo-500 cursor-pointer font-medium">
+          <option value="en-US">🇺🇸 English</option>
+          <option value="es-ES">🇪🇸 Español</option>
+          <option value="fr-FR">🇫🇷 Français</option>
+          <option value="de-DE">🇩🇪 Deutsch</option>
+          <option value="hi-IN">🇮🇳 हिन्दी</option>
+          <option value="ja-JP">🇯🇵 日本語</option>
+          <option value="zh-CN">🇨🇳 中文</option>
+        </select>
+        <button id="ttsToggleBtn" onclick="toggleTts()" title="Toggle Voice Feedback" class="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 transition-all">
+          <svg id="ttsIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+          </svg>
+        </button>
+        <div id="backendStatus" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Online</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Voice & Input Center Card -->
+    <section class="relative rounded-3xl p-6 bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-2xl shadow-indigo-950/50 flex flex-col items-center text-center">
+      
+      <!-- Mic Trigger Section with Animated Ripples -->
+      <div class="relative my-3 flex items-center justify-center">
+        <!-- Pulse radar rings (visible when listening) -->
+        <div id="micRipples" class="hidden absolute inset-0 -m-6 rounded-full border-2 border-indigo-400/40 animate-ripple pointer-events-none"></div>
+        <div id="micGlow" class="absolute -inset-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full blur-xl opacity-40 transition-all duration-500"></div>
+        
+        <button id="micBtn" onclick="toggleListening()" aria-label="Toggle voice listening"
+          class="relative w-24 h-24 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-xl shadow-indigo-600/40 hover:scale-105 active:scale-95 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-indigo-400/30">
+          
+          <!-- Mic Icon -->
+          <svg id="micIcon" class="w-10 h-10 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+          </svg>
+
+          <!-- Stop / Wave Icon (Hidden initially) -->
+          <svg id="stopIcon" class="w-10 h-10 hidden text-rose-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <rect x="6" y="6" width="12" height="12" rx="2" stroke-width="2" fill="currentColor" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Live Speech Waveform Bars -->
+      <div id="waveform" class="flex items-center gap-1 h-6 my-2 opacity-0 transition-opacity duration-300">
+        <div class="wave-bar w-1 bg-indigo-400 rounded-full h-3 animate-pulse"></div>
+        <div class="wave-bar w-1 bg-indigo-300 rounded-full h-5 animate-pulse" style="animation-delay: 100ms"></div>
+        <div class="wave-bar w-1 bg-purple-400 rounded-full h-6 animate-pulse" style="animation-delay: 200ms"></div>
+        <div class="wave-bar w-1 bg-indigo-400 rounded-full h-4 animate-pulse" style="animation-delay: 300ms"></div>
+        <div class="wave-bar w-1 bg-purple-300 rounded-full h-2 animate-pulse" style="animation-delay: 400ms"></div>
+      </div>
+
+      <!-- Status Indicator -->
+      <p id="statusText" class="text-sm font-semibold text-indigo-200/90 tracking-wide transition-all">
+        Say "Hello Smart Cart" or tap mic
+      </p>
+
+      <!-- Live Transcript Box -->
+      <div id="transcriptCard" class="w-full mt-3 p-3 rounded-2xl bg-slate-900/60 border border-slate-700/50 min-h-[2.8rem] flex items-center justify-center">
+        <p id="transcript" class="text-xs sm:text-sm italic text-slate-300">
+          "Try saying: Hello Smart Cart, add 2 kg apples!"
+        </p>
+      </div>
+
+      <!-- Assistant AI Feedback Banner (Dynamic) -->
+      <div id="aiBanner" class="w-full mt-3 hidden flex-col gap-2 p-3 rounded-2xl bg-indigo-900/40 border border-indigo-500/30 text-left text-xs animate-fadeIn">
+        <div class="flex items-center justify-between text-indigo-300 font-medium">
+          <span class="flex items-center gap-1.5 font-bold">
+            ✨ <span id="aiActionTitle">Assistant Action</span>
+          </span>
+          <span id="aiCategoryBadge" class="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-200 text-[11px]"></span>
+        </div>
+        <p id="aiMessage" class="text-slate-200 font-medium"></p>
+        <div id="aiTips" class="flex flex-wrap gap-2 pt-1 border-t border-indigo-500/20 text-[11px] text-indigo-200/80"></div>
+      </div>
+
+      <!-- Text Input Fallback / Rapid Typing -->
+      <form id="textForm" onsubmit="handleManualSubmit(event)" class="w-full mt-4 flex items-center gap-2">
+        <div class="relative flex-1">
+          <input 
+            type="text" 
+            id="textInput" 
+            placeholder="Or type command (e.g. 'Add 3 cartons of oat milk')..."
+            class="w-full px-4 py-2.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 text-xs sm:text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="sendBtn"
+          class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-medium text-xs sm:text-sm transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5">
+          <span>Send</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          </svg>
+        </button>
+      </form>
+
+      <!-- Quick Suggestion Chips -->
+      <div class="flex items-center gap-1.5 overflow-x-auto w-full mt-3 py-1 text-[11px] no-scrollbar">
+        <span class="text-slate-400 whitespace-nowrap">Try:</span>
+        <button onclick="runSample('Hello Smart Cart, add 2 kg of bananas')" class="px-2.5 py-1 rounded-lg bg-slate-900/50 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 whitespace-nowrap transition-colors">
+          ⚡ Hello Smart Cart
+        </button>
+        <button onclick="runSample('Add 2 kg of bananas')" class="px-2.5 py-1 rounded-lg bg-slate-900/50 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 whitespace-nowrap transition-colors">
+          🍌 2 kg bananas
+        </button>
+        <button onclick="runSample('Add almond milk under 4 dollars')" class="px-2.5 py-1 rounded-lg bg-slate-900/50 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 whitespace-nowrap transition-colors">
+          🥛 Almond milk &lt; $4
+        </button>
+        <button onclick="runSample('Change bananas to 5 kg')" class="px-2.5 py-1 rounded-lg bg-slate-900/50 hover:bg-slate-700/60 border border-slate-700/50 text-slate-300 whitespace-nowrap transition-colors">
+          ✏️ Change bananas to 5kg
+        </button>
+      </div>
+
+    </section>
+
+    <!-- Smart AI Recommendations Section -->
+    <section class="rounded-3xl p-5 bg-slate-800/70 backdrop-blur-xl border border-indigo-500/30 shadow-xl space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-sm">
+            ✨
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-100 font-heading">Smart Recommendations</h2>
+            <p class="text-[11px] text-indigo-200/70">AI-curated staples, seasonal picks & substitutes</p>
+          </div>
+        </div>
+        <button onclick="fetchRecommendations()" title="Refresh AI recommendations" class="p-1.5 rounded-xl bg-slate-900/60 hover:bg-indigo-600/30 border border-slate-700/60 text-indigo-300 hover:text-white transition-all text-xs flex items-center gap-1 font-medium">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <div id="recommendationsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+        <!-- Dynamic AI Recommendation Cards Injected Here -->
+      </div>
+    </section>
+
+    <!-- Shopping List Section -->
+    <section class="rounded-3xl p-5 bg-slate-800/70 backdrop-blur-xl border border-slate-700/60 shadow-xl space-y-4">
+      
+      <!-- List Header & Actions -->
+      <div class="flex items-center justify-between flex-wrap gap-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-lg font-bold text-slate-100 font-heading">Shopping Cart</h2>
+          <span id="itemCount" class="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold px-2.5 py-0.5 rounded-full">
+            0 items
+          </span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Active Price Filter Badge -->
+          <div id="activePriceFilter" class="hidden items-center gap-1 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-semibold">
+            <span id="priceFilterText">Under $5.00</span>
+            <button onclick="clearPriceFilter()" class="hover:text-amber-100 font-bold ml-1">✕</button>
+          </div>
+
+          <!-- Filter / Search in list -->
+          <div class="relative">
+            <input 
+              type="text" 
+              id="listSearchInput" 
+              oninput="filterList()" 
+              placeholder="Filter list..." 
+              class="w-24 sm:w-32 px-2.5 py-1 rounded-xl bg-slate-900/70 border border-slate-700/60 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-400"
+            />
+          </div>
+          <button onclick="clearAllItems()" class="text-xs px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition-colors">
+            Clear All
+          </button>
+        </div>
+      </div>
+
+      <!-- Item List Container -->
+      <div class="space-y-2.5 max-h-96 overflow-y-auto pr-1" id="shoppingList">
+        <!-- Dynamic Items Injected Here -->
+      </div>
+      
+    </section>
+
+  </main>
+
+  <!-- Toast Notification System -->
+  <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900/95 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 z-50 pointer-events-none text-xs sm:text-sm">
+    <span id="toastIcon">✨</span>
+    <span id="toastMsg">Ready!</span>
+  </div>
+
+  <script>
+    // Configuration
+    const API_URL = "/api/parse-command";
+    let listItems = JSON.parse(localStorage.getItem("voice_shopping_cart") || "[]");
+    let isListening = false;
+    let ttsEnabled = true;
+    let wakeWordMode = true; // Wake-Word Hands Free Enabled by default!
+    let selectedLang = "en-US";
+    let activeMaxPrice = null;
+
+    // Wake-Word Phrases (flexible matching for speech-to-text variations)
+    const WAKE_PHRASES = [
+      "hello smart cart", "hello smart-cart", "hello smartcard", "hello smart card", "hello smart kart", "hello smart",
+      "hey smart cart", "hey smart-cart", "hey smartcard", "hey smart card",
+      "ok smart cart", "hi smart cart", "smart cart", "smartcard", "smart card", "smart kart"
+    ];
+
+    function detectWakeWord(rawText) {
+      if (!rawText) return { found: false, command: "" };
+      const lower = rawText.toLowerCase().trim();
+      for (const phrase of WAKE_PHRASES) {
+        const idx = lower.indexOf(phrase);
+        if (idx !== -1) {
+          const remaining = lower.substring(idx + phrase.length).replace(/^[\s,.:!]+/, '').trim();
+          return { found: true, phrase: phrase, command: remaining };
+        }
+      }
+      return { found: false, command: rawText };
+    }
+
+    function toggleWakeWordMode() {
+      wakeWordMode = !wakeWordMode;
+      const pulse = document.getElementById("wakeWordPulse");
+      const status = document.getElementById("wakeWordStatusText");
+      const btn = document.getElementById("wakeWordBtn");
+
+      if (wakeWordMode) {
+        pulse.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+        status.innerText = 'Say "Hello Smart-Cart"';
+        btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/40 text-indigo-300 text-xs font-semibold transition-all";
+        showToast("⚡ Hands-free Wake Word listening activated!");
+        if (recognition && !isListening) {
+          try { recognition.start(); } catch (e) {}
+        }
+      } else {
+        pulse.className = "w-2 h-2 rounded-full bg-slate-500";
+        status.innerText = 'Wake-Word: Off';
+        btn.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700/60 text-slate-400 text-xs font-medium transition-all";
+        showToast("🔇 Hands-free Wake Word disabled");
+        if (recognition && isListening) {
+          try { recognition.stop(); } catch (e) {}
+        }
+      }
+    }
+
+    // Category Color & Icon Mappings
+    const CATEGORY_MAP = {
+      produce: { color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", icon: "🥦" },
+      fruits: { color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30", icon: "🍎" },
+      dairy: { color: "bg-sky-500/15 text-sky-300 border-sky-500/30", icon: "🥛" },
+      bakery: { color: "bg-amber-500/15 text-amber-300 border-amber-500/30", icon: "🥖" },
+      pantry: { color: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30", icon: "🥫" },
+      beverages: { color: "bg-teal-500/15 text-teal-300 border-teal-500/30", icon: "🧃" },
+      household: { color: "bg-purple-500/15 text-purple-300 border-purple-500/30", icon: "🧼" },
+      snacks: { color: "bg-orange-500/15 text-orange-300 border-orange-500/30", icon: "🥨" },
+      meat: { color: "bg-rose-500/15 text-rose-300 border-rose-500/30", icon: "🥩" },
+      default: { color: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30", icon: "🛒" }
+    };
+
+    function getCategoryMeta(categoryName) {
+      if (!categoryName) return CATEGORY_MAP.default;
+      const key = categoryName.toLowerCase().trim();
+      return CATEGORY_MAP[key] || CATEGORY_MAP.default;
+    }
+
+    // Language Selector Setup
+    function changeLanguage() {
+      const select = document.getElementById("langSelect");
+      selectedLang = select.value;
+      if (recognition) {
+        recognition.lang = selectedLang;
+      }
+      showToast(`🌐 Voice language set to ${select.options[select.selectedIndex].text}`);
+      fetchRecommendations();
+    }
+
+    // Speech Recognition Setup
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+    if (recognition) {
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = selectedLang;
+
+      recognition.onstart = () => {
+        isListening = true;
+        updateListeningUI(true);
+        setStatus("Listening for 'Hello Smart Cart'...", "text-indigo-400");
+      };
+
+      recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          document.getElementById("transcript").innerText = `"${currentText}"`;
+        }
+
+        const wakeCheck = detectWakeWord(currentText);
+
+        if (wakeCheck.found) {
+          setStatus("⚡ Wake word detected! Smart Cart activated...", "text-emerald-400");
+          if (finalTranscript) {
+            const cmdToRun = wakeCheck.command ? wakeCheck.command : "Hello Smart Cart";
+            processCommand(cmdToRun);
+          }
+        } else if (finalTranscript) {
+          setStatus("AI is analyzing command...", "text-purple-400");
+          processCommand(finalTranscript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        isListening = false;
+        updateListeningUI(false);
+        if (event.error === "not-allowed") {
+          setStatus("Microphone permission denied. Enable mic in browser settings.", "text-rose-400");
+          showToast("⚠️ Microphone access denied");
+        } else if (event.error === "no-speech") {
+          setStatus("Listening for 'Hello Smart Cart'...", "text-slate-400");
+        } else {
+          setStatus(`Speech recognition error: ${event.error}`, "text-rose-400");
+        }
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        updateListeningUI(false);
+
+        // Auto restart for hands-free wake word listening
+        if (wakeWordMode) {
+          setTimeout(() => {
+            try {
+              if (!isListening) recognition.start();
+            } catch (e) {}
+          }, 300);
+        }
+      };
+    } else {
+      document.getElementById("statusText").innerText = "Speech API not available. Use text box below.";
+    }
+
+    function toggleListening() {
+      if (!recognition) {
+        showToast("⚠️ Speech Recognition not supported in this browser. Please use text input!");
+        document.getElementById("textInput").focus();
+        return;
+      }
+
+      if (isListening) {
+        recognition.stop();
+      } else {
+        try {
+          recognition.start();
+        } catch (e) {
+          console.error("Recognition start error:", e);
+        }
+      }
+    }
+
+    function updateListeningUI(active) {
+      const micIcon = document.getElementById("micIcon");
+      const stopIcon = document.getElementById("stopIcon");
+      const ripples = document.getElementById("micRipples");
+      const glow = document.getElementById("micGlow");
+      const waveform = document.getElementById("waveform");
+      const micBtn = document.getElementById("micBtn");
+
+      if (active) {
+        micIcon.classList.add("hidden");
+        stopIcon.classList.remove("hidden");
+        ripples.classList.remove("hidden");
+        waveform.classList.remove("opacity-0");
+        glow.classList.remove("opacity-40");
+        glow.classList.add("opacity-80", "from-rose-500", "to-indigo-600");
+        micBtn.classList.add("from-rose-600", "via-purple-600", "to-indigo-600");
+      } else {
+        micIcon.classList.remove("hidden");
+        stopIcon.classList.add("hidden");
+        ripples.classList.add("hidden");
+        waveform.classList.add("opacity-0");
+        glow.classList.remove("opacity-80", "from-rose-500", "to-indigo-600");
+        glow.classList.add("opacity-40");
+        micBtn.classList.remove("from-rose-600", "via-purple-600", "to-indigo-600");
+      }
+    }
+
+    function setStatus(text, colorClass = "text-indigo-200") {
+      const statusEl = document.getElementById("statusText");
+      statusEl.innerText = text;
+      statusEl.className = `text-sm font-semibold tracking-wide transition-all ${colorClass}`;
+    }
+
+    // Process Voice / Text Command with Backend
+    async function processCommand(text) {
+      const sendBtn = document.getElementById("sendBtn");
+      sendBtn.disabled = true;
+      sendBtn.classList.add("opacity-50");
+
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript: text, language: selectedLang })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `Server error ${res.status}`);
+        }
+
+        const data = await res.json();
+        handleParsedResponse(data);
+        setStatus("Ready for next command", "text-emerald-400");
+      } catch (err) {
+        console.error("API error:", err);
+        setStatus(`Error: ${err.message}`, "text-rose-400");
+        showToast(`❌ ${err.message}`);
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.classList.remove("opacity-50");
+      }
+    }
+
+    // Handle Parsed Response Actions
+    function handleParsedResponse(data) {
+      displayAiBanner(data);
+
+      let spokenText = data.message;
+
+      // Handle price range max filter if extracted
+      if (data.price_max) {
+        activeMaxPrice = data.price_max;
+        const filterBadge = document.getElementById("activePriceFilter");
+        const filterText = document.getElementById("priceFilterText");
+        filterText.innerText = `Under $${data.price_max}`;
+        filterBadge.classList.remove("hidden");
+        filterBadge.classList.add("flex");
+      }
+
+      if (data.action === "add") {
+        const existingIdx = listItems.findIndex(i => i.item.toLowerCase() === data.item.toLowerCase());
+        if (existingIdx !== -1) {
+          listItems[existingIdx].quantity = data.quantity || listItems[existingIdx].quantity;
+          listItems[existingIdx].substitute_suggestion = data.substitute_suggestion || listItems[existingIdx].substitute_suggestion;
+          listItems[existingIdx].seasonal_note = data.seasonal_note || listItems[existingIdx].seasonal_note;
+          if (data.price_max) listItems[existingIdx].price_max = data.price_max;
+        } else {
+          listItems.unshift({
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            price_max: data.price_max,
+            substitute_suggestion: data.substitute_suggestion,
+            seasonal_note: data.seasonal_note,
+            checked: false
+          });
+        }
+        showToast(`Added "${data.item}"`);
+        if (!spokenText) spokenText = `Added ${data.quantity} ${data.item} to your shopping cart.`;
+      } 
+      else if (data.action === "modify") {
+        const existingIdx = listItems.findIndex(i => i.item.toLowerCase().includes(data.item.toLowerCase()));
+        if (existingIdx !== -1) {
+          listItems[existingIdx].quantity = data.quantity || listItems[existingIdx].quantity;
+          if (data.category) listItems[existingIdx].category = data.category;
+          if (data.price_max) listItems[existingIdx].price_max = data.price_max;
+          showToast(`Updated "${listItems[existingIdx].item}" quantity to ${data.quantity}`);
+          if (!spokenText) spokenText = `Updated ${listItems[existingIdx].item} quantity to ${data.quantity}.`;
+        } else {
+          // If item doesn't exist, treat modify as add
+          listItems.unshift({
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            price_max: data.price_max,
+            substitute_suggestion: data.substitute_suggestion,
+            seasonal_note: data.seasonal_note,
+            checked: false
+          });
+          showToast(`Added "${data.item}"`);
+          if (!spokenText) spokenText = `Added ${data.quantity} ${data.item} to your shopping cart.`;
+        }
+      }
+      else if (data.action === "check") {
+        const existingIdx = listItems.findIndex(i => i.item.toLowerCase().includes(data.item.toLowerCase()));
+        if (existingIdx !== -1) {
+          listItems[existingIdx].checked = true;
+          showToast(`Checked off "${listItems[existingIdx].item}"`);
+          if (!spokenText) spokenText = `Checked off ${listItems[existingIdx].item} from your list.`;
+        } else {
+          listItems.unshift({
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            price_max: data.price_max,
+            substitute_suggestion: data.substitute_suggestion,
+            seasonal_note: data.seasonal_note,
+            checked: true
+          });
+          showToast(`Marked "${data.item}" as completed`);
+          if (!spokenText) spokenText = `Marked ${data.item} as completed.`;
+        }
+      }
+      else if (data.action === "remove") {
+        const initialLen = listItems.length;
+        listItems = listItems.filter(item => !item.item.toLowerCase().includes(data.item.toLowerCase()));
+        const removedCount = initialLen - listItems.length;
+        showToast(removedCount > 0 ? `Removed "${data.item}"` : `Item "${data.item}" not found in cart.`);
+        if (!spokenText) {
+          spokenText = removedCount > 0 ? `Removed ${data.item} from your list.` : `I couldn't find ${data.item} in your list.`;
+        }
+      } 
+      else if (data.action === "clear") {
+        listItems = [];
+        showToast("Cleared entire shopping cart");
+        if (!spokenText) spokenText = "Cleared all items from your shopping list.";
+      }
+      else if (data.action === "search") {
+        showToast(`Searching for "${data.item}"`);
+        filterListByKeyword(data.item);
+        if (!spokenText) spokenText = `Searching for ${data.item} in your list.`;
+      }
+      else {
+        showToast(`Command: ${data.item || "Unknown"}`);
+        if (!spokenText) spokenText = `Processed command for ${data.item}.`;
+      }
+
+      saveAndRender();
+      // Only refresh recommendations when cart contents actually change
+      if (["add", "remove", "clear", "modify"].includes(data.action)) {
+        fetchRecommendations();
+      }
+
+      if (ttsEnabled && spokenText) {
+        speakResponse(spokenText);
+      }
+    }
+
+    function displayAiBanner(data) {
+      const banner = document.getElementById("aiBanner");
+      const title = document.getElementById("aiActionTitle");
+      const badge = document.getElementById("aiCategoryBadge");
+      const message = document.getElementById("aiMessage");
+      const tips = document.getElementById("aiTips");
+
+      banner.classList.remove("hidden");
+      banner.classList.add("flex");
+      title.innerText = `Action: ${data.action.toUpperCase()} (${data.item || 'Item'})`;
+      badge.innerText = data.category || "Grocery";
+      message.innerText = data.message || `Processed ${data.action} request for ${data.quantity} ${data.item}.`;
+
+      let tipsHtml = '';
+      if (data.substitute_suggestion) {
+        tipsHtml += `<span class="inline-flex items-center gap-1 bg-indigo-500/20 px-2 py-0.5 rounded-md">💡 Alt: <b>${data.substitute_suggestion}</b></span>`;
+      }
+      if (data.seasonal_note) {
+        tipsHtml += `<span class="inline-flex items-center gap-1 bg-emerald-500/20 px-2 py-0.5 rounded-md">🌱 <b>${data.seasonal_note}</b></span>`;
+      }
+      if (data.price_max) {
+        tipsHtml += `<span class="inline-flex items-center gap-1 bg-amber-500/20 px-2 py-0.5 rounded-md">🏷️ Max: <b>$${data.price_max}</b></span>`;
+      }
+
+      tips.innerHTML = tipsHtml;
+    }
+
+    // Text-to-Speech (TTS)
+    function speakResponse(text) {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = selectedLang;
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleTts() {
+      ttsEnabled = !ttsEnabled;
+      const icon = document.getElementById("ttsIcon");
+      if (ttsEnabled) {
+        icon.classList.remove("text-rose-400", "opacity-50");
+        showToast("🔊 Voice feedback enabled");
+      } else {
+        window.speechSynthesis?.cancel();
+        icon.classList.add("text-rose-400", "opacity-50");
+        showToast("🔇 Voice feedback muted");
+      }
+    }
+
+    // Form & Manual Submission
+    function handleManualSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById("textInput");
+      const text = input.value.trim();
+      if (!text) return;
+      document.getElementById("transcript").innerText = `"${text}"`;
+      setStatus("Processing text command...", "text-purple-400");
+      processCommand(text);
+      input.value = "";
+    }
+
+    function runSample(sampleText) {
+      document.getElementById("textInput").value = sampleText;
+      document.getElementById("transcript").innerText = `"${sampleText}"`;
+      setStatus("Processing sample...", "text-indigo-400");
+      processCommand(sampleText);
+    }
+
+    // Smart Recommendations Fetcher & Renderer
+    async function fetchRecommendations() {
+      const container = document.getElementById("recommendationsList");
+      if (!container) return;
+
+      const currentItems = listItems.map(i => i.item);
+
+      try {
+        const res = await fetch("/api/recommendations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ current_items: currentItems, language: selectedLang })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          renderRecommendations(data.recommendations || []);
+        }
+      } catch (e) {
+        console.warn("Error fetching AI recommendations:", e);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function renderRecommendations(recs) {
+      const container = document.getElementById("recommendationsList");
+      if (!container) return;
+
+      if (!recs || recs.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 col-span-2">No recommendations available right now.</p>`;
+        return;
+      }
+
+      container.innerHTML = recs.map(rec => {
+        let badgeColor = "bg-indigo-500/20 text-indigo-300 border-indigo-500/30";
+        let icon = "💡";
+        const b = (rec.badge || "").toLowerCase();
+        if (b.includes("low")) { badgeColor = "bg-rose-500/20 text-rose-300 border-rose-500/30"; icon = "⚠️"; }
+        else if (b.includes("season")) { badgeColor = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"; icon = "🌱"; }
+        else if (b.includes("substitut")) { badgeColor = "bg-amber-500/20 text-amber-300 border-amber-500/30"; icon = "🔄"; }
+        else if (b.includes("pair")) { badgeColor = "bg-purple-500/20 text-purple-300 border-purple-500/30"; icon = "✨"; }
+
+        // HTML-escape all user-facing strings to prevent XSS
+        const safeItem = escapeHtml(rec.item);
+        const safeQty = escapeHtml(rec.quantity || "1");
+        const safeCat = escapeHtml(rec.category || "Groceries");
+        const safeReason = escapeHtml(rec.reason);
+        const safeBadge = escapeHtml(rec.badge);
+
+        return `
+          <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/60 border border-slate-700/60 hover:border-indigo-500/40 transition-all">
+            <div class="min-w-0 flex-1 pr-2">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-xs text-slate-100 truncate">${safeItem}</span>
+                <span class="text-[10px] px-1.5 py-0.2 rounded border ${badgeColor} font-semibold flex items-center gap-0.5">
+                  <span>${icon}</span> <span>${safeBadge}</span>
+                </span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5 truncate" title="${safeReason}">${safeReason}</p>
+            </div>
+            <button onclick="addRecommendedItem('${safeItem.replace(/'/g, "&#39;")}', '${safeQty.replace(/'/g, "&#39;")}', '${safeCat.replace(/'/g, "&#39;")}')" 
+              class="px-2 py-1 rounded-xl bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-medium whitespace-nowrap transition-all shadow-sm">
+              + Add
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function addRecommendedItem(item, quantity, category) {
+      const existingIdx = listItems.findIndex(i => i.item.toLowerCase() === item.toLowerCase());
+      if (existingIdx === -1) {
+        listItems.unshift({
+          id: Date.now(),
+          item: item,
+          quantity: quantity || "1",
+          category: category || "Groceries",
+          checked: false
+        });
+        showToast(`Added "${item}" to cart`);
+        saveAndRender();
+        fetchRecommendations();
+
+        // Sync with backend API
+        try {
+          await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transcript: `Add ${quantity} ${item}` })
+          });
+        } catch (e) {
+          console.warn("Backend sync error for recommended item:", e);
+        }
+      } else {
+        showToast(`"${item}" is already in your cart`);
+      }
+    }
+
+    function clearPriceFilter() {
+      activeMaxPrice = null;
+      const filterBadge = document.getElementById("activePriceFilter");
+      filterBadge.classList.add("hidden");
+      filterBadge.classList.remove("flex");
+      filterList();
+    }
+
+    // Render & Persistence
+    function saveAndRender(saveToLocal = true) {
+      if (saveToLocal) {
+        localStorage.setItem("voice_shopping_cart", JSON.stringify(listItems));
+      }
+      renderList();
+    }
+
+    function renderList(filteredItems = null) {
+      let itemsToRender = filteredItems || listItems;
+
+      if (activeMaxPrice !== null) {
+        itemsToRender = itemsToRender.filter(i => !i.price_max || i.price_max <= activeMaxPrice);
+      }
+
+      const listEl = document.getElementById("shoppingList");
+      document.getElementById("itemCount").innerText = `${listItems.length} items`;
+
+      if (itemsToRender.length === 0) {
+        listEl.innerHTML = `
+          <div class="py-8 text-center text-slate-400 flex flex-col items-center justify-center gap-2 border border-dashed border-slate-700/70 rounded-2xl">
+            <span class="text-3xl">🛒</span>
+            <p class="text-sm font-medium">Your shopping cart is empty</p>
+            <p class="text-xs text-slate-500">Tap the mic or type to add fresh items</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = itemsToRender.map((item, idx) => {
+        const meta = getCategoryMeta(item.category);
+        const isChecked = item.checked ? 'strikethrough text-slate-400' : 'text-slate-100';
+
+        return `
+          <div class="group flex items-center justify-between p-3.5 rounded-2xl bg-slate-900/60 hover:bg-slate-900/90 border border-slate-800/80 hover:border-slate-700 transition-all duration-200">
+            <div class="flex items-start gap-3 flex-1 min-w-0">
+              <!-- Checkbox -->
+              <input 
+                type="checkbox" 
+                ${item.checked ? 'checked' : ''} 
+                onchange="toggleItemChecked('${item.item.replace(/'/g, "\\'")}')"
+                class="mt-1 w-4 h-4 rounded-md accent-indigo-600 bg-slate-800 border-slate-700 cursor-pointer"
+              />
+              
+              <!-- Item Details -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-semibold text-sm ${isChecked} truncate">${item.item}</span>
+                  <span class="text-xs font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-md border border-indigo-500/20">
+                    ${item.quantity}
+                  </span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-md border ${meta.color} flex items-center gap-1 font-medium">
+                    ${meta.icon} ${item.category}
+                  </span>
+                  ${item.price_max ? `
+                    <span class="text-[11px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium">
+                      🏷️ &lt; $${item.price_max}
+                    </span>
+                  ` : ''}
+                </div>
+
+                <!-- Notes / Suggestions / Seasonality -->
+                ${item.substitute_suggestion ? `
+                  <p class="text-[11px] text-indigo-300/80 mt-1 flex items-center gap-1">
+                    <span>💡 Suggestion:</span> <span class="text-indigo-200 font-medium">${item.substitute_suggestion}</span>
+                  </p>
+                ` : ''}
+                ${item.seasonal_note ? `
+                  <p class="text-[11px] text-emerald-400/80 mt-0.5 flex items-center gap-1">
+                    <span>🌱 Note:</span> <span class="text-emerald-300 font-medium">${item.seasonal_note}</span>
+                  </p>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center gap-1 ml-2">
+              <button onclick="removeItemByName('${item.item.replace(/'/g, "\\'")}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title="Delete Item">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function toggleItemChecked(itemName) {
+      const item = listItems.find(i => i.item.toLowerCase() === itemName.toLowerCase());
+      if (item) {
+        item.checked = !item.checked;
+        saveAndRender();
+        try {
+          await fetch(`/api/item/${encodeURIComponent(item.item)}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ checked: item.checked })
+          });
+        } catch (e) {
+          console.warn("Error updating check status on server:", e);
+        }
+      }
+    }
+
+    async function removeItemByName(itemName) {
+      listItems = listItems.filter(i => i.item.toLowerCase() !== itemName.toLowerCase());
+      saveAndRender();
+      fetchRecommendations();
+      showToast(`Removed "${itemName}"`);
+      try {
+        await fetch(`/api/item/${encodeURIComponent(itemName)}`, { method: "DELETE" });
+      } catch (e) {
+        console.warn("Error removing item on server:", e);
+      }
+    }
+
+    async function clearAllItems() {
+      if (listItems.length === 0) return;
+      if (confirm("Are you sure you want to clear your shopping cart?")) {
+        listItems = [];
+        saveAndRender();
+        fetchRecommendations();
+        showToast("Cart cleared");
+        try {
+          await fetch("/api/clear-list", { method: "DELETE" });
+        } catch (e) {
+          console.warn("Error clearing list on server:", e);
+        }
+      }
+    }
+
+    function filterList() {
+      const q = document.getElementById("listSearchInput").value.toLowerCase().trim();
+      if (!q) {
+        renderList();
+        return;
+      }
+      const filtered = listItems.filter(i => 
+        i.item.toLowerCase().includes(q) || 
+        i.category.toLowerCase().includes(q)
+      );
+      renderList(filtered);
+    }
+
+    function filterListByKeyword(keyword) {
+      document.getElementById("listSearchInput").value = keyword;
+      filterList();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      document.getElementById("toastMsg").innerText = msg;
+      toast.classList.remove("translate-y-20", "opacity-0");
+      toast.classList.add("translate-y-0", "opacity-100");
+      setTimeout(() => {
+        toast.classList.remove("translate-y-0", "opacity-100");
+        toast.classList.add("translate-y-20", "opacity-0");
+      }, 3000);
+    }
+
+    // Load server items from Firestore
+    async function loadServerList() {
+      try {
+        const res = await fetch("/api/get-list");
+        if (res.ok) {
+          const serverItems = await res.json();
+          if (Array.isArray(serverItems) && serverItems.length > 0) {
+            listItems = serverItems.map((item, idx) => ({
+              id: item.id || Date.now() + idx,
+              item: item.item,
+              quantity: item.quantity || "1",
+              category: item.category || "Groceries",
+              price_max: item.price_max || null,
+              substitute_suggestion: item.substitute_suggestion || null,
+              seasonal_note: item.seasonal_note || null,
+              checked: !!item.checked
+            }));
+            saveAndRender();
+          }
+        }
+      } catch (e) {
+        console.warn("Could not fetch remote list from Firestore:", e);
+      }
+    }
+
+    // Health check on startup
+    async function checkBackendHealth() {
+      try {
+        const res = await fetch("/api/health");
+        const data = await res.json();
+        const badge = document.getElementById("backendStatus");
+        if (data.status === "healthy" && data.gemini_configured) {
+          const firestoreTag = data.firestore_configured ? " • Cloud Sync" : "";
+          badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium";
+          badge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>AI Online${firestoreTag}</span>`;
+        } else if (!data.gemini_configured) {
+          badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium";
+          badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-400"></span><span>No API Key</span>';
+        }
+      } catch (e) {
+        const badge = document.getElementById("backendStatus");
+        badge.className = "flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium";
+        badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-rose-400"></span><span>Offline</span>';
+      }
+    }
+
+    // Initial render and sync
+    renderList();
+    loadServerList();
+    checkBackendHealth();
+    fetchRecommendations();
+  </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+# ─── Secrets & Keys ────────────────────────────────────────
+.env
+*firebase-adminsdk*.json
+
+# ─── Python / Backend ──────────────────────────────────────
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
+**/__pycache__/
+*.pyc
+*.pyo
+
+# ─── Next.js / Frontend ────────────────────────────────────
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+frontend/.env.local
+
+# ─── OS & Editor ───────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
