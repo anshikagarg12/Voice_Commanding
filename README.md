@@ -1,4 +1,4 @@
-# Voice Command Shopping Assistant
+# Smart Cart
 
 A multilingual voice-activated shopping list manager with structured NLU parsing and cloud persistence.
 
@@ -143,7 +143,7 @@ Deletes a single item or clears the entire shopping list.
 
 ## Technical Approach
 
-The Voice Command Shopping Assistant employs a decoupled architecture using FastAPI for backend services and Next.js for the client interface. The frontend handles audio capture via the Web Speech API and manages local state, providing a responsive experience powered by Tailwind CSS.
+Smart Cart employs a decoupled architecture using FastAPI for backend services and Next.js for the client interface. The frontend handles audio capture via the Web Speech API and manages local state, providing a responsive experience powered by Tailwind CSS.
 
 Natural Language Understanding (NLU) is driven by Google Gemini utilizing structured JSON schema outputs. This ensures that multilingual natural language input is reliably parsed into normalized data structures for action handling, item categorization, and price extraction. The parsing engine is designed to handle speech recognition ambiguities and returns localized text for Text-to-Speech confirmation.
 

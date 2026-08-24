@@ -1,6 +1,6 @@
-# Technical Approach Write-Up
+# write-up
 
-The Voice Command Shopping Assistant is built using **FastAPI** (Python) on the backend and modern **HTML5/Vanilla JavaScript** with the **Web Speech API** and Tailwind CSS on the frontend.
+Smart Cart is built using **FastAPI** (Python) on the backend and modern **HTML5/Vanilla JavaScript** with the **Web Speech API** and Tailwind CSS on the frontend.
 
 For Natural Language Understanding (NLU), we leverage **Google Gemini 3.6 Flash** structured JSON schema output (`response_schema`). Gemini intelligently parses multilingual spoken or typed input into normalized JSON entities: action (`add`, `remove`, `modify`, `search`, `clear`), item name, quantity, auto-categorization, price constraints (`price_max`), substitute recommendations, and seasonal notes. The parser is resilient to speech recognition typos and generates context-aware spoken responses in the user's selected language.
 
