@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "https://voice-commanding-94wl.onrender.com";
 
 const DEFAULT_LISTS = ['Groceries', 'Dairy', 'Clothes', 'Pharmacy'];
 
