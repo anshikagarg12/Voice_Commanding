@@ -12,13 +12,13 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "Voice Cart AI | Cross-Platform Web & Mobile Assistant",
+  title: "Smart Cart | Cross-Platform Web & Mobile Assistant",
   description: "AI-powered voice command shopping assistant with multilingual NLU, wake-word detection, and smart recommendations.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Voice Cart AI",
+    title: "Smart Cart",
   },
 };
 

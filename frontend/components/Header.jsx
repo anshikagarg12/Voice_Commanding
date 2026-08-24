@@ -27,7 +27,7 @@ export default function Header({
         </div>
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-stone-800 font-heading">
-            Voice Cart AI
+            Smart Cart
           </h1>
           <p className="text-xs text-stone-400 font-medium">Cross-Platform Web & Mobile Assistant</p>
         </div>
