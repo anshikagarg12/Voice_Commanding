@@ -1,8 +1,85 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_BASE = "https://voice-commanding-94wl.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://voice-commanding-94wl.onrender.com";
 
 const DEFAULT_LISTS = ['Groceries', 'Dairy', 'Clothes', 'Pharmacy'];
+
+function localParseCommand(text, language = 'en-US', defaultList = 'Groceries') {
+  let lower = text.toLowerCase().trim();
+
+  // Normalize common STT garbles & fillers
+  lower = lower
+    .replace(/\bplz\b|\bpls\b/g, 'please')
+    .replace(/\bad\b/g, 'add');
+
+  let targetList = defaultList || 'Groceries';
+  const listMatch = lower.match(/(?:to|in|on)\s*(?:my\s*)?([a-zA-Z]+)\s*list/i);
+  if (listMatch) {
+    targetList = listMatch[1].charAt(0).toUpperCase() + listMatch[1].slice(1).toLowerCase();
+    lower = lower.replace(listMatch[0], '').trim();
+  }
+
+  // Wake word strip
+  const wakeWords = ["hello smart cart", "hey smart cart", "smart cart"];
+  for (const wp of wakeWords) {
+    if (lower.startsWith(wp)) {
+      lower = lower.slice(wp.length).replace(/^[ ,.:!]+/, '').trim();
+      break;
+    }
+  }
+
+  if (!lower || ["hello", "hi", "hey"].includes(lower)) {
+    return {
+      action: "unknown",
+      item: "",
+      quantity: "1",
+      category: "Groceries",
+      target_list: targetList,
+      message: "Hello! Smart Cart is ready."
+    };
+  }
+
+  let action = "add";
+  if (/\b(?:clear|saaf)\b/i.test(lower)) action = "clear";
+  else if (/\b(?:remove|delete|hatao)\b/i.test(lower)) action = "remove";
+  else if (/\b(?:search|find|dhoondo)\b/i.test(lower)) action = "search";
+  else if (/\b(?:change|update|modify|badlo)\b/i.test(lower)) action = "modify";
+  else if (/\b(?:already|got|bought|checked|picked)\b/i.test(lower)) action = "check";
+
+  const qtyMatch = lower.match(/(\d+(?:\.\d+)?\s*(?:kg|g|lb|lbs|liter|liters|carton|cartons|bottle|bottles|box|boxes|pack|packs|doz|dozen)?)/i);
+  const quantity = qtyMatch ? qtyMatch[1].trim() : "1";
+
+  let itemClean = lower
+    .replace(/^(?:can|could)\s+(?:i|you)\s+(?:please\s+)?/i, '')
+    .replace(/^(?:please\s+)?(?:add|buy|get|put|need|want|remove|delete|search|find|check|modify|update|change)\s+/i, '')
+    .replace(/^(a|an|the|some|of|me|my)\s+/i, '')
+    .replace(/\s+(a|an|the|some|of)$/i, '')
+    .trim();
+
+  if (qtyMatch) {
+    itemClean = itemClean.replace(qtyMatch[1].trim(), '').trim();
+  }
+
+  const stopWords = new Set(["add", "buy", "get", "need", "want", "remove", "delete", "check", "please", "plz", "pls", "to", "in", "on", "my", "me", "i", "some", "a", "an", "the"]);
+  const words = itemClean.split(/\s+/).filter(w => w && !stopWords.has(w));
+  const itemName = words.length > 0 ? words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : "Item";
+
+  let category = "Groceries";
+  const itemLow = itemName.toLowerCase();
+  if (/milk|cheese|yogurt|butter|cream|paneer|curd/i.test(itemLow)) category = "Dairy";
+  else if (/apple|banana|strawberry|mango|orange|lemon|potato|tomato|onion|spinach|carrot|broccoli/i.test(itemLow)) category = "Produce";
+  else if (/bread|loaf|croissant|muffin|bagel|bun/i.test(itemLow)) category = "Bakery";
+  else if (/rice|oats|flour|sugar|salt|oil|pasta|cereal/i.test(itemLow)) category = "Pantry";
+
+  return {
+    action,
+    item: action === "clear" ? "" : itemName,
+    quantity,
+    category,
+    target_list: targetList,
+    message: action === "add" ? `Added ${quantity} ${itemName} to ${targetList} list.` : `Processed command for ${itemName}.`
+  };
+}
 
 export function useShoppingList() {
   const [items, setItems] = useState([]);
@@ -24,7 +101,6 @@ export function useShoppingList() {
   useEffect(() => { itemsRef.current = items; }, [items]);
 
   const showToast = useCallback((msg) => {
-    // Clear any pending toast dismissal to prevent a newer toast being wiped early
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToastMessage(msg);
     toastTimerRef.current = setTimeout(() => {
@@ -41,7 +117,6 @@ export function useShoppingList() {
         if (localData) {
           const parsed = JSON.parse(localData);
           if (Array.isArray(parsed)) {
-            // Filter out corrupt entries missing the `item` field
             const clean = parsed.filter(i => i && typeof i.item === 'string' && i.item.trim());
             setItems(clean);
           }
@@ -87,6 +162,8 @@ export function useShoppingList() {
           gemini: !!data.gemini_configured,
           firestore: !!data.firestore_configured
         });
+      } else {
+        setBackendHealth({ online: false, gemini: false, firestore: false });
       }
     } catch (e) {
       setBackendHealth({ online: false, gemini: false, firestore: false });
@@ -135,7 +212,7 @@ export function useShoppingList() {
     } catch (e) {
       console.warn("Error fetching recommendations:", e);
     }
-  }, []); // stable — uses ref
+  }, []);
 
   useEffect(() => {
     checkHealth();
@@ -157,12 +234,13 @@ export function useShoppingList() {
     showToast(`Created new list "${formatted}"`);
   }, [showToast]);
 
-  // Process NLU Command with FastAPI Backend — stable, reads activeList via ref
+  // Process NLU Command (FastAPI with seamless Client-side Fallback)
   const processCommand = useCallback(async (transcriptText, language = 'en-US') => {
     if (!transcriptText || !transcriptText.trim()) return null;
     setIsLoading(true);
 
     const currentActiveList = activeListRef.current;
+    let data = null;
 
     try {
       const res = await fetch(`${API_BASE}/api/parse-command`, {
@@ -171,122 +249,120 @@ export function useShoppingList() {
         body: JSON.stringify({ transcript: transcriptText, language, target_list: currentActiveList })
       });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || `Server Error ${res.status}`);
+      if (res.ok) {
+        data = await res.json();
       }
-
-      const data = await res.json();
-      setAiBannerData(data);
-
-      const targetList = data.target_list || currentActiveList || "Groceries";
-
-      // Dynamically add target list to availableLists if new
-      setAvailableLists(prev => {
-        if (!prev.includes(targetList)) {
-          return [...prev, targetList];
-        }
-        return prev;
-      });
-
-      if (data.price_max) {
-        setActiveMaxPrice(data.price_max);
-      }
-
-      if (data.action === "add" && data.item) {
-        setItems(prev => {
-          const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase() === data.item.toLowerCase() && (i.list_name || "Groceries").toLowerCase() === targetList.toLowerCase());
-          if (idx !== -1) {
-            const updated = [...prev];
-            updated[idx] = {
-              ...updated[idx],
-              quantity: data.quantity || updated[idx].quantity,
-              substitute_suggestion: data.substitute_suggestion || updated[idx].substitute_suggestion,
-              seasonal_note: data.seasonal_note || updated[idx].seasonal_note,
-              price_max: data.price_max || updated[idx].price_max
-            };
-            return updated;
-          } else {
-            return [{
-              id: Date.now(),
-              item: data.item,
-              quantity: data.quantity || "1",
-              category: data.category || "Groceries",
-              list_name: targetList,
-              price_max: data.price_max,
-              substitute_suggestion: data.substitute_suggestion,
-              seasonal_note: data.seasonal_note,
-              checked: false
-            }, ...prev];
-          }
-        });
-        showToast(`Added "${data.item}" to ${targetList} list`);
-      } else if (data.action === "modify" && data.item) {
-        setItems(prev => {
-          const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase().includes(data.item.toLowerCase()));
-          if (idx !== -1) {
-            const updated = [...prev];
-            updated[idx] = {
-              ...updated[idx],
-              quantity: data.quantity || updated[idx].quantity,
-              category: data.category || updated[idx].category,
-              price_max: data.price_max || updated[idx].price_max
-            };
-            return updated;
-          } else {
-            return [{
-              id: Date.now(),
-              item: data.item,
-              quantity: data.quantity || "1",
-              category: data.category || "Groceries",
-              list_name: targetList,
-              price_max: data.price_max,
-              checked: false
-            }, ...prev];
-          }
-        });
-        showToast(`Updated "${data.item}" quantity to ${data.quantity}`);
-      } else if (data.action === "check" && data.item) {
-        setItems(prev => {
-          const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase().includes(data.item.toLowerCase()));
-          if (idx !== -1) {
-            const updated = [...prev];
-            updated[idx] = { ...updated[idx], checked: true };
-            return updated;
-          } else {
-            return [{
-              id: Date.now(),
-              item: data.item,
-              quantity: data.quantity || "1",
-              category: data.category || "Groceries",
-              list_name: targetList,
-              checked: true
-            }, ...prev];
-          }
-        });
-        showToast(`Checked off "${data.item}"`);
-      } else if (data.action === "remove" && data.item) {
-        setItems(prev => prev.filter(i => !i || !i.item || !i.item.toLowerCase().includes(data.item.toLowerCase())));
-        showToast(`Removed "${data.item}"`);
-      } else if (data.action === "clear") {
-        const listToClear = currentActiveList || "Groceries";
-        setItems(prev => prev.filter(i => (i.list_name || "Groceries").toLowerCase() !== listToClear.toLowerCase()));
-        showToast(`Cleared ${listToClear} list`);
-      } else if (data.action === "search") {
-        showToast(`Searching for "${data.item}"`);
-      } else {
-        showToast(`Command: ${data.item || "Processed"}`);
-      }
-
-      fetchRecommendations(language);
-      return data;
     } catch (e) {
-      showToast(`❌ ${e.message}`);
-      throw e;
-    } finally {
-      setIsLoading(false);
+      console.warn("Backend API unavailable, using client NLU parser:", e);
     }
-  }, [showToast, fetchRecommendations]); // stable deps only
+
+    if (!data) {
+      data = localParseCommand(transcriptText, language, currentActiveList);
+    }
+
+    setAiBannerData(data);
+    const targetList = data.target_list || currentActiveList || "Groceries";
+
+    setAvailableLists(prev => {
+      if (!prev.includes(targetList)) {
+        return [...prev, targetList];
+      }
+      return prev;
+    });
+
+    if (data.price_max) {
+      setActiveMaxPrice(data.price_max);
+    }
+
+    if (data.action === "add" && data.item) {
+      setItems(prev => {
+        const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase() === data.item.toLowerCase() && (i.list_name || "Groceries").toLowerCase() === targetList.toLowerCase());
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            quantity: data.quantity || updated[idx].quantity,
+            substitute_suggestion: data.substitute_suggestion || updated[idx].substitute_suggestion,
+            seasonal_note: data.seasonal_note || updated[idx].seasonal_note,
+            price_max: data.price_max || updated[idx].price_max
+          };
+          return updated;
+        } else {
+          return [{
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            list_name: targetList,
+            price_max: data.price_max,
+            substitute_suggestion: data.substitute_suggestion,
+            seasonal_note: data.seasonal_note,
+            checked: false
+          }, ...prev];
+        }
+      });
+      showToast(`Added "${data.item}" to ${targetList} list`);
+    } else if (data.action === "modify" && data.item) {
+      setItems(prev => {
+        const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase().includes(data.item.toLowerCase()));
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            quantity: data.quantity || updated[idx].quantity,
+            category: data.category || updated[idx].category,
+            price_max: data.price_max || updated[idx].price_max
+          };
+          return updated;
+        } else {
+          return [{
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            list_name: targetList,
+            price_max: data.price_max,
+            checked: false
+          }, ...prev];
+        }
+      });
+      showToast(`Updated "${data.item}" quantity to ${data.quantity}`);
+    } else if (data.action === "check" && data.item) {
+      setItems(prev => {
+        const idx = prev.findIndex(i => i && i.item && i.item.toLowerCase().includes(data.item.toLowerCase()));
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], checked: true };
+          return updated;
+        } else {
+          return [{
+            id: Date.now(),
+            item: data.item,
+            quantity: data.quantity || "1",
+            category: data.category || "Groceries",
+            list_name: targetList,
+            checked: true
+          }, ...prev];
+        }
+      });
+      showToast(`Checked off "${data.item}"`);
+    } else if (data.action === "remove" && data.item) {
+      setItems(prev => prev.filter(i => !i || !i.item || !i.item.toLowerCase().includes(data.item.toLowerCase())));
+      showToast(`Removed "${data.item}"`);
+    } else if (data.action === "clear") {
+      const listToClear = currentActiveList || "Groceries";
+      setItems(prev => prev.filter(i => (i.list_name || "Groceries").toLowerCase() !== listToClear.toLowerCase()));
+      showToast(`Cleared ${listToClear} list`);
+    } else if (data.action === "search") {
+      showToast(`Searching for "${data.item}"`);
+    } else {
+      showToast(`Command: ${data.item || "Processed"}`);
+    }
+
+    fetchRecommendations(language);
+    setIsLoading(false);
+    return data;
+  }, [showToast, fetchRecommendations]);
 
   const toggleItemChecked = useCallback(async (itemName) => {
     if (!itemName) return;
@@ -313,7 +389,6 @@ export function useShoppingList() {
 
   const clearAllItems = useCallback(async () => {
     const listToClear = activeListRef.current;
-    // Count only items belonging to the active list
     const listItems = listToClear === 'All'
       ? itemsRef.current
       : itemsRef.current.filter(i => (i.list_name || 'Groceries').toLowerCase() === listToClear.toLowerCase());
@@ -326,7 +401,6 @@ export function useShoppingList() {
         fetch(`${API_BASE}/api/clear-list`, { method: "DELETE" }).catch(() => {});
       } else {
         setItems(prev => prev.filter(i => (i.list_name || "Groceries").toLowerCase() !== listToClear.toLowerCase()));
-        // Delete each item from the backend so they don't reappear
         listItems.forEach(item => {
           if (item && item.item) {
             fetch(`${API_BASE}/api/item/${encodeURIComponent(item.item)}`, { method: "DELETE" }).catch(() => {});
