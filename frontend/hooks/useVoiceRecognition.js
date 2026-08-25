@@ -5,9 +5,7 @@ const WAKE_PHRASES = [
   "hey smart cart", "hey smart-cart", "hey smartcard", "hey smart card",
   "ok smart cart", "hi smart cart", "smart cart", "smartcard", "smart card", "smart kart"
 ];
-// NOTE: removed bare "hello smart" — too broad; caused false positives on unrelated speech
 
-// Web Audio API Audio Chime — reuse a singleton AudioContext to avoid leaks
 let _sharedAudioCtx = null;
 function getAudioCtx() {
   if (typeof window === 'undefined') return null;
@@ -23,14 +21,12 @@ function getAudioCtx() {
   }
 }
 
-// BUG FIX: playChimeSound now awaits ctx.resume() so oscillator starts
-// only after AudioContext is resumed (Chrome autoplay policy).
 async function playChimeSound() {
   const ctx = getAudioCtx();
   if (!ctx) return;
   try {
     if (ctx.state === 'suspended') {
-      await ctx.resume(); // was: ctx.resume() without await → silence on first play
+      await ctx.resume();
     }
     const now = ctx.currentTime;
     const osc1 = ctx.createOscillator();
@@ -64,8 +60,9 @@ export function useVoiceRecognition(onCommandDetected) {
   const onCommandDetectedRef = useRef(onCommandDetected);
   const wakeWordModeRef = useRef(wakeWordMode);
   const isListeningRef = useRef(isListening);
-  // BUG FIX: store loaded voices in a ref so speakResponse always has them
   const voicesRef = useRef([]);
+  const silenceTimerRef = useRef(null);
+  const accumulatedSpeechRef = useRef('');
 
   useEffect(() => {
     onCommandDetectedRef.current = onCommandDetected;
@@ -92,8 +89,6 @@ export function useVoiceRecognition(onCommandDetected) {
     return { found: false, command: rawText };
   }, []);
 
-  // BUG FIX: speakResponse reads from voicesRef (always populated) instead of
-  // calling getVoices() inline which returns [] during first invocation.
   const speakResponse = useCallback((text) => {
     if (!ttsEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
 
@@ -117,7 +112,6 @@ export function useVoiceRecognition(onCommandDetected) {
     window.speechSynthesis.speak(utterance);
   }, [ttsEnabled, selectedLang]);
 
-  // BUG FIX: populate voicesRef on mount and whenever voices are loaded.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
 
@@ -128,13 +122,38 @@ export function useVoiceRecognition(onCommandDetected) {
       }
     };
 
-    updateVoices(); // synchronous on Firefox; may be empty on Chrome (that's fine, onvoiceschanged fills it)
+    updateVoices();
     window.speechSynthesis.onvoiceschanged = updateVoices;
 
     return () => {
       window.speechSynthesis.onvoiceschanged = null;
     };
   }, []);
+
+  const processCapturedSentence = useCallback((sentenceText) => {
+    if (!sentenceText || !sentenceText.trim()) return;
+    const cleanText = sentenceText.trim();
+    
+    const wakeCheck = detectWakeWord(cleanText);
+
+    if (wakeCheck.found) {
+      setStatusText("⚡ Wake word detected! Processing...");
+      setStatusColor("text-yellow-600");
+      const cmdToRun = wakeCheck.command ? wakeCheck.command : null;
+      if (cmdToRun && onCommandDetectedRef.current) {
+        onCommandDetectedRef.current(cmdToRun);
+      } else if (!cmdToRun) {
+        setStatusText('👋 Hey! Say a command after the wake word.');
+        setStatusColor('text-yellow-500');
+      }
+    } else {
+      setStatusText("Analyzing command...");
+      setStatusColor("text-yellow-500");
+      if (onCommandDetectedRef.current) {
+        onCommandDetectedRef.current(cleanText);
+      }
+    }
+  }, [detectWakeWord]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -146,66 +165,59 @@ export function useVoiceRecognition(onCommandDetected) {
     }
 
     const rec = new SpeechRecognition();
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = selectedLang;
 
     rec.onstart = () => {
       setIsListening(true);
-      setStatusText("Listening... Speak your command");
+      accumulatedSpeechRef.current = '';
+      setStatusText("Listening... Speak your command smoothly");
       setStatusColor("text-yellow-600");
     };
 
     rec.onresult = (event) => {
-      let interim = '';
-      let final = '';
+      let fullFinal = '';
+      let fullInterim = '';
 
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
+      for (let i = 0; i < event.results.length; ++i) {
+        const text = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          final += event.results[i][0].transcript;
+          fullFinal += (fullFinal ? ' ' : '') + text;
         } else {
-          interim += event.results[i][0].transcript;
+          fullInterim += (fullInterim ? ' ' : '') + text;
         }
       }
 
-      // BUG FIX: only show interim in transcript display; don't dispatch commands on interim
-      // Previously currentText could be interim, causing command dispatch on partial speech
-      const currentText = final || interim;
-      if (currentText) {
-        setTranscript(currentText);
+      const fullSentence = (fullFinal + ' ' + fullInterim).trim();
+      if (fullSentence) {
+        setTranscript(fullSentence);
+        accumulatedSpeechRef.current = fullSentence;
       }
 
-      // BUG FIX: only process final results to avoid duplicate/premature commands
-      if (!final) return;
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
 
-      const wakeCheck = detectWakeWord(final);
-
-      if (wakeCheck.found) {
-        setStatusText("⚡ Wake word detected! Processing...");
-        setStatusColor("text-yellow-600");
-        // BUG FIX: don't dispatch if only a greeting with no actual command
-        const cmdToRun = wakeCheck.command ? wakeCheck.command : null;
-        if (cmdToRun && onCommandDetectedRef.current) {
-          onCommandDetectedRef.current(cmdToRun);
-        } else if (!cmdToRun) {
-          // Just greeted — acknowledge without sending to backend
-          setStatusText('👋 Hey! Say a command after the wake word.');
-          setStatusColor('text-yellow-500');
-        }
-      } else {
-        setStatusText("Analyzing command...");
-        setStatusColor("text-yellow-500");
-        if (onCommandDetectedRef.current) onCommandDetectedRef.current(final);
+      if (fullSentence) {
+        silenceTimerRef.current = setTimeout(() => {
+          if (accumulatedSpeechRef.current) {
+            const captured = accumulatedSpeechRef.current;
+            accumulatedSpeechRef.current = '';
+            processCapturedSentence(captured);
+            try { rec.stop(); } catch (e) {}
+          }
+        }, 1200);
       }
     };
 
     rec.onerror = (event) => {
       setIsListening(false);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       console.warn("Speech recognition event error:", event.error);
       if (event.error === "aborted") {
         return;
       } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-        // Kill the wake-word loop immediately so onend doesn't keep retrying
         setWakeWordMode(false);
         wakeWordModeRef.current = false;
         setStatusText("⚠️ Mic blocked! Click lock icon 🔒 in browser URL bar to allow mic.");
@@ -216,7 +228,6 @@ export function useVoiceRecognition(onCommandDetected) {
       } else if (event.error === "network") {
         setStatusText("Network glitch. Retrying mic...");
         setStatusColor("text-yellow-500");
-        // Use a flag to prevent onend from also trying to restart simultaneously
         rec._networkRetrying = true;
         setTimeout(() => {
           rec._networkRetrying = false;
@@ -232,10 +243,15 @@ export function useVoiceRecognition(onCommandDetected) {
 
     rec.onend = () => {
       setIsListening(false);
-      // Don't restart if a network-error retry is already scheduled
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+
+      if (accumulatedSpeechRef.current) {
+        const captured = accumulatedSpeechRef.current;
+        accumulatedSpeechRef.current = '';
+        processCapturedSentence(captured);
+      }
+
       if (wakeWordModeRef.current && !rec._networkRetrying) {
-        // BUG FIX: reduced restart delay from 400ms to 150ms so wake-word mode
-        // doesn't miss speech right after a command completes
         setTimeout(() => {
           try {
             rec.start();
@@ -250,14 +266,13 @@ export function useVoiceRecognition(onCommandDetected) {
     recognitionRef.current = rec;
 
     return () => {
-      // Stop the old recognition instance before it is replaced (e.g. on language change)
-      // Suppress the resulting `onend` from triggering a wake-word restart
-      rec._networkRetrying = true; // reuse flag to suppress onend restart
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      rec._networkRetrying = true;
       try {
         rec.stop();
       } catch (e) {}
     };
-  }, [selectedLang, detectWakeWord]);
+  }, [selectedLang, detectWakeWord, processCapturedSentence]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
@@ -265,14 +280,21 @@ export function useVoiceRecognition(onCommandDetected) {
       return;
     }
 
-    // Play chime on tap
     playChimeSound();
 
     if (isListeningRef.current) {
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (accumulatedSpeechRef.current) {
+        const captured = accumulatedSpeechRef.current;
+        accumulatedSpeechRef.current = '';
+        processCapturedSentence(captured);
+      }
       try {
         recognitionRef.current.stop();
       } catch (e) {}
     } else {
+      accumulatedSpeechRef.current = '';
+      setTranscript('');
       try {
         recognitionRef.current.start();
       } catch (e) {
