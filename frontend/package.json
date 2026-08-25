@@ -16,5 +16,9 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
     "tailwindcss": "^4.1.0"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.0.0",
+    "@tailwindcss/oxide-win32-x64-msvc": "^4.0.0"
   }
 }
