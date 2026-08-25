@@ -178,6 +178,7 @@ async def parse_command(payload: TranscriptInput):
         "You are an intelligent Voice Shopping Assistant NLU parser for the Indian market. "
         "Convert spoken or typed shopping commands in ANY language (English, Hindi, Tamil, Telugu, Marathi, Bengali, etc.) into structured JSON data. "
         "CRITICAL: The 'item' field must contain ONLY the clean product name (e.g. 'Apples', 'Toned Milk', 'Atta'). "
+        "NEVER include quantities, units (e.g. '12 dozen', '2 kg', '3 boxes', 'carton'), or prepositions ('of', 'some') in the item field. Extract quantities like '12 dozen' into the 'quantity' field. "
         "NEVER include conversational filler words like 'can you please', 'add', 'some', 'a', 'of', 'the', 'me', 'please', 'could you', 'I want', 'I need' in the item field. "
         "Speech-to-text may produce garbled letters (e.g. 'S blueberries' means 'some blueberries' → item='Blueberries'; 'plz ad' means 'please add'). "
         "Strip all wake word prefixes: 'Hello Smart Cart', 'Hey Smart Cart', 'Smart Cart', 'OK Smart Cart'. "
@@ -375,16 +376,12 @@ def fallback_parse_command(text: str, language: str = "en", default_list: str = 
     elif any(k in lower for k in ["already", "got", "bought", "checked", "picked up", "ya tengo"]):
         action = "check"
 
-    # BUG FIX: quantity extracted from price-stripped text so price numbers aren't captured
-    qty_match = re.search(r'(\d+(?:\.\d+)?\s*(?:kg|g|lb|lbs|liter|liters|litros|carton|cartons|bottle|bottles|box|boxes|loaf|loaves|bag|bags|pack|packs|doz|dozen|count)?)', lower_no_price)
+    # Quantity & Unit extraction
+    UNITS_PATTERN = r'kg|kgs|kilo|kilos|kilogram|kilograms|g|gram|grams|lb|lbs|pound|pounds|liter|liters|litre|litres|l|ml|carton|cartons|bottle|bottles|box|boxes|pack|packs|packet|packets|bag|bags|loaf|loaves|doz|dozen|dozens|piece|pieces|bunch|bunches|head|heads|pair|pairs'
+    qty_match = re.search(r'(\d+(?:\.\d+)?\s*(?:' + UNITS_PATTERN + r')?)', lower_no_price, re.IGNORECASE)
     quantity = qty_match.group(1).strip() if qty_match else "1"
 
     # ── Item extraction ─────────────────────────────────────────────────────────
-    # Step 1: strip leading conversational filler AND action verbs before the item
-    # BUG FIX: expanded patterns to cover:
-    #   - "can i please add" (was only "can you")
-    #   - "already got" / "alr got" WITHOUT a leading "I"
-    #   - informal fillers: "plz", "pls" (already normalized above)
     item_clean = re.sub(
         r'^(?:can\s+(?:i|you)\s+(?:please\s+)?)?'
         r'(?:could\s+(?:i|you)\s+(?:please\s+)?)?'
@@ -395,27 +392,28 @@ def fallback_parse_command(text: str, language: str = "en", default_list: str = 
         '', lower_no_price
     ).strip()
 
-    # Step 2: remove quantity match text (strip surrounding whitespace carefully)
     if qty_match:
         item_clean = re.sub(r'\s*' + re.escape(qty_match.group(1).strip()) + r'\s*', ' ', item_clean).strip()
 
-    # Step 3: remove trailing/leading prepositions and any residual price clauses
     item_clean = re.sub(r'\s+(?:under|below|less\s+than)\s+[₹$]?\d+(?:\.\d+)?', '', item_clean)
     item_clean = re.sub(r'^(a|an|the|some|of|s|me|my|us)\s+', '', item_clean).strip()
     item_clean = re.sub(r'\s+(a|an|the|some|of|s)$', '', item_clean).strip()
 
-    # Step 4: filter remaining stop words
     STOP_WORDS = {
         "add", "want", "need", "buy", "get", "put", "remove", "delete", "change",
         "update", "modify", "set", "quantity", "to", "search", "find", "for",
-        "i", "me", "my", "we", "us", "already", "alr", "got", "bought", "picked",
-        "under", "below", "dollars", "dollar", "rupees", "rupee", "please", "plz", "pls", "can",
+        "i", "me", "my", "we", "us", "already", "alr", "got", "bought", "picked", "up",
+        "under", "below", "dollars", "dollar", "rupees", "rupee", "bucks", "buck", "please", "plz", "pls", "can",
         "you", "could", "would", "like", "just", "a", "an", "the", "some",
-        "of", "s", "its", "and", "or", "with", "let", "in", "on", "at", "check",
+        "of", "from", "in", "on", "at", "with", "s", "its", "and", "or", "check",
+        "doz", "dozen", "dozens", "kg", "kgs", "kilo", "kilos", "kilogram", "kilograms", "g", "gram", "grams",
+        "lb", "lbs", "pound", "pounds", "liter", "liters", "litre", "litres", "l", "ml",
+        "carton", "cartons", "bottle", "bottles", "box", "boxes", "pack", "packs", "packet", "packets",
+        "bag", "bags", "loaf", "loaves", "piece", "pieces", "bunch", "bunches", "head", "heads", "pair", "pairs"
     }
     words = [
         w for w in re.split(r'\s+', item_clean)
-        if w and w not in STOP_WORDS and not re.match(r'^[₹$]?\d+(\.\d+)?$', w)
+        if w and w.lower() not in STOP_WORDS and not re.match(r'^[₹$]?\d+(\.\d+)?$', w)
     ]
     item_name = " ".join(words).title().strip() if words else "Item"
 

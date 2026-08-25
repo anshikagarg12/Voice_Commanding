@@ -46,29 +46,52 @@ function localParseCommand(text, language = 'en-US', defaultList = 'Groceries') 
   else if (/\b(?:change|update|modify|badlo)\b/i.test(lower)) action = "modify";
   else if (/\b(?:already|got|bought|checked|picked)\b/i.test(lower)) action = "check";
 
-  const qtyMatch = lower.match(/(\d+(?:\.\d+)?\s*(?:kg|g|lb|lbs|liter|liters|carton|cartons|bottle|bottles|box|boxes|pack|packs|doz|dozen)?)/i);
+  // Price max extraction
+  let priceMax = null;
+  const priceMatch = lower.match(/(?:under|below|less\s+than|<)\s*[₹$]?(\d+(?:\.\d+)?)/i);
+  if (priceMatch) {
+    priceMax = parseFloat(priceMatch[1]);
+  }
+  const lowerNoPrice = lower.replace(/(?:under|below|less\s+than|<)\s*[₹$]?\d+(?:\.\d+)?(?:\s*(?:dollars?|rupees?|bucks?))?/gi, '').trim();
+
+  // Comprehensive Quantity & Unit extraction (e.g., "12 dozen", "2 kg", "3 boxes", "500 grams", "1 carton", "6 pieces")
+  const UNITS_PATTERN = 'kg|kgs|kilo|kilos|kilogram|kilograms|g|gram|grams|lb|lbs|pound|pounds|liter|liters|litre|litres|l|ml|carton|cartons|bottle|bottles|box|boxes|pack|packs|packet|packets|bag|bags|loaf|loaves|doz|dozen|dozens|piece|pieces|bunch|bunches|head|heads|pair|pairs';
+  const qtyRegex = new RegExp(`(\\d+(?:\\.\\d+)?\\s*(?:${UNITS_PATTERN})?)`, 'i');
+  const qtyMatch = lowerNoPrice.match(qtyRegex);
   const quantity = qtyMatch ? qtyMatch[1].trim() : "1";
 
-  let itemClean = lower
+  // Strip leading action verbs, conversational fillers, and quantity match
+  let itemClean = lowerNoPrice
     .replace(/^(?:can|could)\s+(?:i|you)\s+(?:please\s+)?/i, '')
-    .replace(/^(?:please\s+)?(?:add|buy|get|put|need|want|remove|delete|search|find|check|modify|update|change)\s+/i, '')
+    .replace(/^(?:please\s+)?(?:add|buy|get|put|need|want|remove|delete|search|find|check|modify|update|change|i\s+would\s+like\s+to\s+add|i\s+want\s+to\s+add|i\s+need\s+to\s+add)\s+/i, '')
     .replace(/^(a|an|the|some|of|me|my)\s+/i, '')
-    .replace(/\s+(a|an|the|some|of)$/i, '')
     .trim();
 
   if (qtyMatch) {
     itemClean = itemClean.replace(qtyMatch[1].trim(), '').trim();
   }
 
-  const stopWords = new Set(["add", "buy", "get", "need", "want", "remove", "delete", "check", "please", "plz", "pls", "to", "in", "on", "my", "me", "i", "some", "a", "an", "the"]);
-  const words = itemClean.split(/\s+/).filter(w => w && !stopWords.has(w));
+  // Exhaustive Stop Words filter to strip prepositions ("of", "for") and unit names ("dozen", "dozens", "kg") from product name
+  const STOP_WORDS = new Set([
+    "add", "buy", "get", "need", "want", "put", "remove", "delete", "check", "modify", "update", "change",
+    "please", "plz", "pls", "can", "could", "would", "like", "just", "i", "me", "my", "we", "us",
+    "already", "alr", "got", "bought", "picked", "up",
+    "a", "an", "the", "some", "of", "from", "for", "in", "on", "at", "to", "with", "s", "its", "and", "or",
+    "under", "below", "dollars", "dollar", "rupees", "rupee", "bucks", "buck",
+    "doz", "dozen", "dozens", "kg", "kgs", "kilo", "kilos", "kilogram", "kilograms", "g", "gram", "grams",
+    "lb", "lbs", "pound", "pounds", "liter", "liters", "litre", "litres", "l", "ml",
+    "carton", "cartons", "bottle", "bottles", "box", "boxes", "pack", "packs", "packet", "packets",
+    "bag", "bags", "loaf", "loaves", "piece", "pieces", "bunch", "bunches", "head", "heads", "pair", "pairs"
+  ]);
+
+  const words = itemClean.split(/\s+/).filter(w => w && !STOP_WORDS.has(w) && !/^[₹$]?\d+(\.\d+)?$/.test(w));
   const itemName = words.length > 0 ? words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : "Item";
 
   let category = "Groceries";
   const itemLow = itemName.toLowerCase();
   if (/milk|cheese|yogurt|butter|cream|paneer|curd/i.test(itemLow)) category = "Dairy";
-  else if (/apple|banana|strawberry|mango|orange|lemon|potato|tomato|onion|spinach|carrot|broccoli/i.test(itemLow)) category = "Produce";
-  else if (/bread|loaf|croissant|muffin|bagel|bun/i.test(itemLow)) category = "Bakery";
+  else if (/apple|apples|banana|bananas|strawberry|strawberries|mango|mangoes|orange|oranges|lemon|lemons|potato|potatoes|tomato|tomatoes|onion|onions|spinach|carrot|carrots|broccoli|grape|grapes/i.test(itemLow)) category = "Produce";
+  else if (/bread|loaf|sourdough|croissant|muffin|bagel|bun/i.test(itemLow)) category = "Bakery";
   else if (/rice|oats|flour|sugar|salt|oil|pasta|cereal/i.test(itemLow)) category = "Pantry";
 
   return {
@@ -76,6 +99,7 @@ function localParseCommand(text, language = 'en-US', defaultList = 'Groceries') 
     item: action === "clear" ? "" : itemName,
     quantity,
     category,
+    price_max: priceMax,
     target_list: targetList,
     message: action === "add" ? `Added ${quantity} ${itemName} to ${targetList} list.` : `Processed command for ${itemName}.`
   };
