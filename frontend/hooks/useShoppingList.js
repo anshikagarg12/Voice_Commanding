@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://voice-commanding-94wl.onrender.com";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://voice-commanding-lhnt.onrender.com";
 
 const DEFAULT_LISTS = ['Groceries', 'Dairy', 'Clothes', 'Pharmacy'];
 
